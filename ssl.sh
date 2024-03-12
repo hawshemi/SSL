@@ -1,9 +1,11 @@
 #!/bin/bash
 
+
 # Define color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
+
 
 # Check if script is run as root
 check_root() {
@@ -13,21 +15,18 @@ check_root() {
     fi
 }
 
-# Function to display help menu
-usage() {
-    echo "Usage: $0 [-h]"
-    echo "  -h  Display this help and exit."
-}
 
 # Validate domain format
 validate_domain() {
     if [[ $1 =~ ^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
+        echo -e "${GREEN}Domain validation passed for: $1${NC}"
         return 0
     else
         echo -e "${RED}Validation Error: The domain '$1' is not in a valid format.${NC}"
         return 1
     fi
 }
+
 
 # Install socat if it's not already installed
 install_socat() {
@@ -37,6 +36,7 @@ install_socat() {
     fi
 }
 
+
 # Allow port 80 with ufw
 allow_port_80() {
     if sudo ufw status | grep -q active; then
@@ -44,12 +44,14 @@ allow_port_80() {
     fi
 }
 
+
 # Install and configure ACME
 install_acme() {
     curl https://get.acme.sh | sudo sh || { echo -e "${RED}Failed to install ACME.sh.${NC}" 1>&2; exit 4; }
     ~/.acme.sh/acme.sh --upgrade --auto-upgrade || { echo -e "${RED}Failed to set up ACME.sh auto-upgrade.${NC}" 1>&2; exit 5; }
     ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt || { echo -e "${RED}Failed to set default CA to Let’s Encrypt.${NC}" 1>&2; exit 6; }
 }
+
 
 # Apply and install SSL certificate
 apply_install_ssl() {
@@ -65,6 +67,7 @@ apply_install_ssl() {
     sudo chown -R nobody:nogroup "${cert_dir}" || { echo -e "${RED}Failed to change owner and group of ${cert_dir}.${NC}" 1>&2; exit 9; }
     echo -e "${GREEN}SSL certificate obtained and installed for $domain_name.${NC}"
 }
+
 
 # Function to revoke and clean SSL certificate
 revoke_ssl() {
@@ -82,6 +85,7 @@ revoke_ssl() {
     echo -e "${GREEN}SSL certificate revoked and cleaned for $domain_name.${NC}"
 }
 
+
 # Function to force renew SSL certificate
 force_renew_ssl() {
     local domain_name=$1
@@ -95,12 +99,13 @@ force_renew_ssl() {
     echo -e "${GREEN}SSL certificate forcefully renewed for $domain_name.${NC}"
 }
 
+
 # Main function
 main() {
     check_root
     
     while true; do
-        echo "Choose an option:"
+        echo -e "\n${GREEN}Choose an option:${NC}"
         echo "1. Get SSL"
         echo "2. Revoke SSL"
         echo "3. Force Renew SSL"
@@ -142,7 +147,7 @@ main() {
                 fi
                 ;;
             4)
-                echo "Exiting script."
+                echo -e "${GREEN}Exiting script. Thank you for using SSL Management.${NC}"
                 exit 0
                 ;;
             *)
@@ -151,6 +156,7 @@ main() {
         esac
     done
 }
+
 
 # Run main function
 main "$@"
