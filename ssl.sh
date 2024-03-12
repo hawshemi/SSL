@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# Define color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
 # Check if script is run as root
 check_root() {
     if [ "$(id -u)" != "0" ]; then
-        echo "This script must be run as root" 1>&2
+        echo -e "${RED}This script must be run as root.${NC}" 1>&2
         exit 1
     fi
 }
@@ -19,6 +24,7 @@ validate_domain() {
     if [[ $1 =~ ^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
         return 0
     else
+        echo -e "${RED}Validation Error: The domain '$1' is not in a valid format.${NC}"
         return 1
     fi
 }
@@ -27,22 +33,22 @@ validate_domain() {
 install_socat() {
     if ! command -v socat &> /dev/null; then
         sudo apt update
-        sudo apt install -y socat || { echo 'Failed to install socat'; exit 1; }
+        sudo apt install -y socat || { echo -e "${RED}Failed to install socat.${NC}" 1>&2; exit 2; }
     fi
 }
 
 # Allow port 80 with ufw
 allow_port_80() {
     if sudo ufw status | grep -q active; then
-        sudo ufw allow 80 || { echo 'Failed to allow port 80'; exit 1; }
+        sudo ufw allow 80 || { echo -e "${RED}Failed to allow port 80.${NC}" 1>&2; exit 3; }
     fi
 }
 
 # Install and configure ACME
 install_acme() {
-    curl https://get.acme.sh | sudo sh || { echo 'Failed to install ACME.sh'; exit 1; }
-    ~/.acme.sh/acme.sh --upgrade --auto-upgrade || { echo 'Failed to set up ACME.sh auto-upgrade'; exit 1; }
-    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt || { echo 'Failed to set default CA to Let’s Encrypt'; exit 1; }
+    curl https://get.acme.sh | sudo sh || { echo -e "${RED}Failed to install ACME.sh.${NC}" 1>&2; exit 4; }
+    ~/.acme.sh/acme.sh --upgrade --auto-upgrade || { echo -e "${RED}Failed to set up ACME.sh auto-upgrade.${NC}" 1>&2; exit 5; }
+    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt || { echo -e "${RED}Failed to set default CA to Let’s Encrypt.${NC}" 1>&2; exit 6; }
 }
 
 # Apply and install SSL certificate
@@ -51,13 +57,13 @@ apply_install_ssl() {
     local cert_dir="/etc/ssl/${domain_name}"
     mkdir -p "${cert_dir}"
     
-    ~/.acme.sh/acme.sh --issue -d "$domain_name" --standalone --keylength ec-256 || { echo 'Failed to issue certificate'; exit 1; }
+    ~/.acme.sh/acme.sh --issue -d "$domain_name" --standalone --keylength ec-256 || { echo -e "${RED}Failed to issue certificate for $domain_name.${NC}" 1>&2; exit 7; }
     ~/.acme.sh/acme.sh --install-cert -d "$domain_name" --ecc \
         --fullchain-file "${cert_dir}/${domain_name}_fullchain.cer" \
-        --key-file "${cert_dir}/${domain_name}_private.key" || { echo 'Failed to install certificate'; exit 1; }
+        --key-file "${cert_dir}/${domain_name}_private.key" || { echo -e "${RED}Failed to install certificate for $domain_name.${NC}" 1>&2; exit 8; }
     
-    sudo chown -R nobody:nogroup "${cert_dir}" || { echo 'Failed to change owner and group of ${cert_dir}'; exit 1; }
-    echo "SSL certificate obtained and installed for $domain_name."
+    sudo chown -R nobody:nogroup "${cert_dir}" || { echo -e "${RED}Failed to change owner and group of ${cert_dir}.${NC}" 1>&2; exit 9; }
+    echo -e "${GREEN}SSL certificate obtained and installed for $domain_name.${NC}"
 }
 
 # Function to revoke and clean SSL certificate
@@ -65,15 +71,15 @@ revoke_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
 
-    ~/.acme.sh/acme.sh --revoke -d "$domain_name" --ecc || { echo 'Failed to revoke certificate for $domain_name'; return 1; }
+    ~/.acme.sh/acme.sh --revoke -d "$domain_name" --ecc || { echo -e "${RED}Failed to revoke certificate for $domain_name.${NC}" 1>&2; return 1; }
     if [ -d "$cert_dir" ]; then
         sudo rm -rf "$cert_dir"
         echo "Removed certificate directory for $domain_name."
     else
         echo "Certificate directory for $domain_name does not exist."
     fi
-    ~/.acme.sh/acme.sh --remove -d "$domain_name" --ecc || { echo 'Failed to remove certificate data for $domain_name'; return 1; }
-    echo "SSL certificate revoked and cleaned for $domain_name."
+    ~/.acme.sh/acme.sh --remove -d "$domain_name" --ecc || { echo -e "${RED}Failed to remove certificate data for $domain_name.${NC}" 1>&2; return 1; }
+    echo -e "${GREEN}SSL certificate revoked and cleaned for $domain_name.${NC}"
 }
 
 # Function to force renew SSL certificate
@@ -81,12 +87,12 @@ force_renew_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
 
-    ~/.acme.sh/acme.sh --renew -d "$domain_name" --force --ecc || { echo 'Failed to renew certificate for $domain_name'; return 1; }
+    ~/.acme.sh/acme.sh --renew -d "$domain_name" --force --ecc || { echo -e "${RED}Failed to renew certificate for $domain_name.${NC}" 1>&2; return 1; }
     ~/.acme.sh/acme.sh --install-cert -d "$domain_name" --ecc \
         --fullchain-file "${cert_dir}/${domain_name}_fullchain.cer" \
-        --key-file "${cert_dir}/${domain_name}_private.key" || { echo 'Failed to install renewed certificate'; return 1; }
+        --key-file "${cert_dir}/${domain_name}_private.key" || { echo -e "${RED}Failed to install renewed certificate for $domain_name.${NC}" 1>&2; return 1; }
 
-    echo "SSL certificate forcefully renewed for $domain_name."
+    echo -e "${GREEN}SSL certificate forcefully renewed for $domain_name.${NC}"
 }
 
 # Main function
@@ -114,7 +120,7 @@ main() {
                     apply_install_ssl "$domain_name"
                     sleep 0.5
                 else
-                    echo "Invalid domain name. Please enter a valid domain name."
+                    echo -e "${RED}Invalid domain name. Please enter a valid domain name.${NC}"
                 fi
                 ;;
             2)
@@ -123,7 +129,7 @@ main() {
                     revoke_ssl "$domain_name"
                     sleep 0.5
                 else
-                    echo "Invalid domain name. Please enter a valid domain name."
+                    echo -e "${RED}Invalid domain name. Please enter a valid domain name.${NC}"
                 fi
                 ;;
             3)
@@ -132,7 +138,7 @@ main() {
                     force_renew_ssl "$domain_name"
                     sleep 0.5
                 else
-                    echo "Invalid domain name. Please enter a valid domain name."
+                    echo -e "${RED}Invalid domain name. Please enter a valid domain name.${NC}"
                 fi
                 ;;
             4)
@@ -140,7 +146,7 @@ main() {
                 exit 0
                 ;;
             *)
-                echo "Invalid choice, please choose between 1 and 4."
+                echo -e "${RED}Invalid choice, please choose between 1 and 4.${NC}"
                 ;;
         esac
     done
