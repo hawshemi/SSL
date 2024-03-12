@@ -1,13 +1,13 @@
 #!/bin/bash
 
 
-# Define color codes
+# Define colour codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 
-# Check if script is run as root
+# Check if the script is run as root
 check_root() {
     if [ "$(id -u)" != "0" ]; then
         echo -e "${RED}This script must be run as root.${NC}" 1>&2
@@ -37,7 +37,7 @@ install_socat() {
 }
 
 
-# Allow port 80 with ufw
+# Allow port 80 with UFW
 allow_port_80() {
     if sudo ufw status | grep -q active; then
         sudo ufw allow 80 || { echo -e "${RED}Failed to allow port 80.${NC}" 1>&2; exit 3; }
@@ -53,7 +53,7 @@ install_acme() {
 }
 
 
-# Apply and install SSL certificate
+# Apply and install the SSL certificate
 apply_install_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
@@ -86,7 +86,7 @@ revoke_ssl() {
 }
 
 
-# Function to force renew SSL certificate
+# Function to force renewal of SSL certificate
 force_renew_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
@@ -108,7 +108,7 @@ main() {
         echo -e "\n${GREEN}Choose an option:${NC}"
         echo "1. Get SSL"
         echo "2. Revoke SSL"
-        echo "3. Force Renew SSL"
+        echo "3. Force SSL Renewal"
         echo "4. Exit"
         read -p "Enter choice [1-4]: " choice
 
@@ -138,7 +138,7 @@ main() {
                 fi
                 ;;
             3)
-                read -p "Enter the domain name for the SSL to force renew (e.g., my.example.com): " domain_name
+                read -p "Enter the domain name for the SSL to force renewal (e.g., my.example.com): " domain_name
                 if validate_domain "$domain_name"; then
                     force_renew_ssl "$domain_name"
                     sleep 0.5
@@ -158,5 +158,5 @@ main() {
 }
 
 
-# Run main function
+# Run the main function
 main "$@"
