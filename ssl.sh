@@ -32,7 +32,7 @@ cyan_msg '======================================================================
 echo 
 
 
-# Check if script is run as root
+# Check if the script is run as root
 check_root() {
     if [ "$(id -u)" != "0" ]; then
         red_msg "Error: This script must be run as root."
@@ -62,7 +62,7 @@ validate_domain() {
 }
 
 
-# Install socat if it's not already installed
+# Install Socat if it's not already installed
 install_socat() {
     if ! command -v socat &> /dev/null; then
         sudo apt update -q
@@ -114,7 +114,7 @@ cleanup_ssl_dir() {
 }
 
 
-# Apply and install SSL certificate
+# Apply and install the SSL certificate
 apply_install_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
@@ -148,7 +148,7 @@ revoke_ssl() {
         green_msg "Removed certificate directory for $domain_name."
         sleep 0.5
     else
-        green_msg "Certificate directory for $domain_name does not exist, no need to remove."
+        green_msg "Certificate directory for $domain_name does not exist, so there is no need to remove it."
         sleep 0.5
     fi
     ~/.acme.sh/acme.sh --remove -d "$domain_name" --ecc || red_msg "Failed to remove certificate data for $domain_name."
@@ -158,7 +158,7 @@ revoke_ssl() {
 }
 
 
-# Function to force renew SSL certificate
+# Function to force renewal of SSL certificate
 force_renew_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
@@ -219,7 +219,7 @@ main() {
                 ;;
             3)
                 echo 
-                read -p "Enter the domain name for the SSL to force renew (e.g., my.example.com): " domain_name
+                read -p "Enter the domain name for the SSL to force renewal (e.g., my.example.com): " domain_name
                 echo 
                 if validate_domain "$domain_name"; then
                     force_renew_ssl "$domain_name"
@@ -245,5 +245,5 @@ main() {
 }
 
 
-# Run main function
+# Run the main function
 main "$@"
