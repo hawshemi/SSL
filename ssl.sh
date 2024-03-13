@@ -1,5 +1,7 @@
 #!/bin/bash
 
+clear
+
 
 # Function for green messages
 green_msg() {
@@ -13,14 +15,20 @@ red_msg() {
 }
 
 
+# Function for cyan messages
+cyan_msg() {
+    echo -e "\033[0;36m[*] ----- $1\033[0m" # Cyan
+}
+
+
 # Intro
 echo 
-green_msg '================================================================='
-green_msg 'This script will automatically Obtain, Revoke, Renew your SSL Certificate.'
-green_msg 'Tested on: Ubuntu 20+, Debian 11+'
-green_msg 'Root access is required.' 
-green_msg 'Source is @ https://github.com/hawshemi/ssl' 
-green_msg '================================================================='
+cyan_msg '================================================================================'
+cyan_msg 'This script will automatically Obtain, Revoke, and Renew your SSL Certificates.'
+cyan_msg 'Tested on: Ubuntu 20+, Debian 11+'
+cyan_msg 'Root access is required.' 
+cyan_msg 'Source is @ https://github.com/hawshemi/ssl' 
+cyan_msg '================================================================================'
 echo 
 
 
@@ -28,6 +36,7 @@ echo
 check_root() {
     if [ "$(id -u)" != "0" ]; then
         red_msg "Error: This script must be run as root."
+        echo 
         sleep 0.5
         exit 1
     else
@@ -41,37 +50,46 @@ check_root() {
 validate_domain() {
     if [[ $1 =~ ^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
         green_msg "Domain validation passed for: $1"
+        echo 
         sleep 0.5
         return 0
     else
         red_msg "Validation Error: The domain '$1' is not in a valid format."
+        echo 
         sleep 0.5
         return 1
     fi
 }
+
 
 # Install socat if it's not already installed
 install_socat() {
     if ! command -v socat &> /dev/null; then
         sudo apt update -q
         sudo apt install -y socat || red_msg "Failed to install socat."
+        echo 
         sleep 0.5
     else
         green_msg "Socat is already installed."
+        echo 
         sleep 0.5
     fi
 }
+
 
 # Allow port 80 with ufw
 allow_port_80() {
     if sudo ufw status | grep -q active; then
         sudo ufw allow 80 || red_msg "Failed to allow port 80."
+        echo 
         sleep 0.5
     else
         green_msg "Port 80 is already allowed."
+        echo 
         sleep 0.5
     fi
 }
+
 
 # Install and configure ACME
 install_acme() {
@@ -83,34 +101,41 @@ install_acme() {
     sleep 0.5
 }
 
+
+# Function to clean up the SSL certificate directory
+cleanup_ssl_dir() {
+    local domain_name=$1
+    local cert_dir="/etc/ssl/${domain_name}"
+    if [ -d "$cert_dir" ]; then
+        sudo rm -rf "$cert_dir"
+        echo 
+        red_msg "Removed certificate directory for $domain_name due to errors."
+    fi
+}
+
+
 # Apply and install SSL certificate
 apply_install_ssl() {
     local domain_name=$1
     local cert_dir="/etc/ssl/${domain_name}"
-    mkdir -p "${cert_dir}" || red_msg "Failed to create certificate directory for $domain_name."
-    sleep 0.5
-
-    ~/.acme.sh/acme.sh --issue -d "$domain_name" --standalone --keylength ec-256 || red_msg "Failed to issue certificate for $domain_name."
-    sleep 0.5
-
+    mkdir -p "${cert_dir}" || { red_msg "Failed to create certificate directory for $domain_name."; exit 1; }
+    echo 
+    
+    ~/.acme.sh/acme.sh --issue -d "$domain_name" --standalone --keylength ec-256 || { cleanup_ssl_dir "$domain_name"; red_msg "Failed to issue certificate for $domain_name. Please check log."; echo ;  exit 1; }
+    
     ~/.acme.sh/acme.sh --install-cert -d "$domain_name" --ecc \
         --fullchain-file "${cert_dir}/${domain_name}_fullchain.cer" \
-        --key-file "${cert_dir}/${domain_name}_private.key" || red_msg "Failed to install certificate for $domain_name."
-    sleep 0.5
-
-    sudo chown -R nobody:nogroup "${cert_dir}" || red_msg "Failed to change owner and group of ${cert_dir}."
-    sleep 0.5
+        --key-file "${cert_dir}/${domain_name}_private.key" || { cleanup_ssl_dir "$domain_name"; red_msg "Failed to install certificate for $domain_name."; exit 1; }
     
-    echo 
-    echo 
-    echo 
+    sudo chown -R nobody:nogroup "${cert_dir}" || { cleanup_ssl_dir "$domain_name"; red_msg "Failed to change owner and group of ${cert_dir}."; exit 1; }
+    
     green_msg "SSL certificate obtained and installed for $domain_name."
     echo 
     green_msg "Fullchain:    ${cert_dir}/${domain_name}_fullchain.cer"
     green_msg "Private:      ${cert_dir}/${domain_name}_private.key"
-
-    sleep 0.5
+    echo 
 }
+
 
 # Function to revoke and clean SSL certificate
 revoke_ssl() {
@@ -128,8 +153,10 @@ revoke_ssl() {
     fi
     ~/.acme.sh/acme.sh --remove -d "$domain_name" --ecc || red_msg "Failed to remove certificate data for $domain_name."
     green_msg "SSL certificate revoked and cleaned for $domain_name."
+    echo 
     sleep 0.5
 }
+
 
 # Function to force renew SSL certificate
 force_renew_ssl() {
@@ -143,59 +170,80 @@ force_renew_ssl() {
         --fullchain-file "${cert_dir}/${domain_name}_fullchain.cer" \
         --key-file "${cert_dir}/${domain_name}_private.key" || red_msg "Failed to install renewed certificate for $domain_name."
     green_msg "SSL certificate forcefully renewed for $domain_name."
+    echo 
     sleep 0.5
 }
+
 
 # Main function
 main() {
     check_root
 
     while true; do
-        echo -e "\nChoose an option:"
-        echo "1. Get SSL"
-        echo "2. Revoke SSL"
-        echo "3. Force Renew SSL"
-        echo "q. Exit"
+        echo 
+        cyan_msg "Choose an option:"
+        cyan_msg "1. Get SSL"
+        cyan_msg "2. Revoke SSL"
+        cyan_msg "3. Force Renew SSL"
+        cyan_msg "q. Exit"
+        echo 
         read -p "Enter choice: " choice
 
         case $choice in
             1)
+                echo 
                 read -p "Enter your domain name (e.g., my.example.com): " domain_name
+                echo 
                 if validate_domain "$domain_name"; then
                     install_socat
                     allow_port_80
                     install_acme
                     apply_install_ssl "$domain_name"
                 else
+                    echo 
                     red_msg "Invalid domain name. Please enter a valid domain name."
+                    echo 
                 fi
                 ;;
             2)
+                echo 
                 read -p "Enter the domain name of the SSL to revoke (e.g., my.example.com): " domain_name
+                echo 
                 if validate_domain "$domain_name"; then
                     revoke_ssl "$domain_name"
                 else
+                    echo 
                     red_msg "Invalid domain name. Please enter a valid domain name."
+                    echo 
                 fi
                 ;;
             3)
+                echo 
                 read -p "Enter the domain name for the SSL to force renew (e.g., my.example.com): " domain_name
+                echo 
                 if validate_domain "$domain_name"; then
                     force_renew_ssl "$domain_name"
                 else
+                    echo 
                     red_msg "Invalid domain name. Please enter a valid domain name."
+                    echo 
                 fi
                 ;;
             q)
+                echo 
                 green_msg "Script Exited."
+                echo 
                 exit 0
                 ;;
             *)
+                echo 
                 red_msg "Invalid choice, please choose from the list."
+                echo 
                 ;;
         esac
     done
 }
+
 
 # Run main function
 main "$@"
